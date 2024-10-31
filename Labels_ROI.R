@@ -40,7 +40,7 @@ xmlToPolygons <- function(xml_file) {
 
 # Define spatial resolution and buffer parameters
 spatial_resolution <- 1  # Adjust this value as needed (in meters)
-buffer_pixels <- 10  # Number of pixels for the buffer
+buffer_pixels <- 2  # Number of pixels for the buffer
 buffer_distance <- buffer_pixels * spatial_resolution  # Convert to meters
 
 # Function to split ROI polygons while retaining original shape
