@@ -1,3 +1,5 @@
+
+
 library(sf)
 library(xml2)
 
@@ -132,17 +134,79 @@ write_xml(new_doc, "C:/Users/PaintRock/Documents/Data processing/Hyperspectral/S
 
 
 
+###### Creating Shape file from Split ROIs#####################################
 
 
+# Read the XML content
+xml_content <- read_xml("C:/Users/PaintRock/Documents/Data processing/Hyperspectral/Split_Endmembers_32619.xml")
 
+# Function to extract coordinates and create a polygon
+extract_polygon_coords <- function(xml_node) {
+  # Extract the coordinates as text from the XML
+  coords_text <- xml_text(xml_find_first(xml_node, ".//Coordinates"))
+  
+  # Split the coordinates string into individual points (pairs of lon/lat)
+  coords <- strsplit(coords_text, " ")[[1]]
+  
+  # Convert the coordinates to numeric, and pair them into a matrix
+  coords_matrix <- matrix(as.numeric(coords), ncol = 2, byrow = TRUE)
+  
+  # Check if the polygon is closed (first and last coordinates should be the same)
+  if (!identical(coords_matrix[1, ], coords_matrix[nrow(coords_matrix), ])) {
+    # If not closed, add the first point to the end
+    coords_matrix <- rbind(coords_matrix, coords_matrix[1, ])
+  }
+  
+  # Return as an 'sf' polygon object
+  return(st_sfc(st_polygon(list(coords_matrix)), crs = 4326))  # WGS84 (EPSG:4326)
+}
 
+# Extract Regions (polygon data) from the XML
+regions <- xml_find_all(xml_content, ".//Region")
 
+# Prepare data frames to store region data for both sets of polygons
+region_data_1 <- data.frame(name = character(), stringsAsFactors = FALSE)
+region_data_2 <- data.frame(name = character(), stringsAsFactors = FALSE)
 
+# Lists to store the sf polygons for both categories
+polygons_1 <- list()
+polygons_2 <- list()
 
+# Loop through each region and extract polygons
+for (region in regions) {
+  region_name <- xml_attr(region, "name")
+  
+  # Extract the coordinates and create the polygon
+  polygon <- extract_polygon_coords(region)
+  
+  # Check if the region name starts with "1_" or "2_" and assign accordingly
+  if (startsWith(region_name, "1_")) {
+    polygons_1[[region_name]] <- polygon
+    region_data_1 <- rbind(region_data_1, data.frame(name = region_name))
+  } else if (startsWith(region_name, "2_")) {
+    polygons_2[[region_name]] <- polygon
+    region_data_2 <- rbind(region_data_2, data.frame(name = region_name))
+  }
+}
 
+# If there are polygons starting with "1_", create a shapefile for them
+if (length(polygons_1) > 0) {
+  sf_polygons_1 <- st_sf(region_data_1, geometry = do.call(c, polygons_1))
+  st_write(sf_polygons_1, "C:/Users/PaintRock/Documents/Data processing/Hyperspectral/Labeling/ROI_1.shp")
+  cat("Shapefile for polygons starting with '1_' has been created.\n")
+} else {
+  cat("No polygons starting with '1_' were found.\n")
+}
 
+# If there are polygons starting with "2_", create a shapefile for them
+if (length(polygons_2) > 0) {
+  sf_polygons_2 <- st_sf(region_data_2, geometry = do.call(c, polygons_2))
+  st_write(sf_polygons_2, "C:/Users/PaintRock/Documents/Data processing/Hyperspectral/Labeling/ROI_2.shp")
+  cat("Shapefile for polygons starting with '2_' has been created.\n")
+} else {
+  cat("No polygons starting with '2_' were found.\n")
+}
 
-coords <- coords[,1:2]
 
 
 
